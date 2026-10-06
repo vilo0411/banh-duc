@@ -111,6 +111,7 @@ Những thứ đã có sẵn, không cần plugin:
 | --- | --- |
 | URL giữ nguyên như WordPress (có dấu `/` cuối) | `next.config.ts` |
 | Redirect 301 các URL hạ tầng WordPress | `next.config.ts` |
+| Redirect 301 trang đính kèm ảnh và shortlink `/?p=` (bảng sinh một lần từ WP: `npx tsx scripts/legacy-redirects.ts`) | `lib/legacy-redirects.json`, `next.config.ts`, `proxy.ts` |
 | Title, description, canonical, Open Graph, Twitter card | `pageMetadata()` trong `lib/seo.tsx` |
 | Metadata của một bài (ảnh bài, ngày đăng/sửa) | `docMetadata()` trong `lib/seo.tsx` |
 | JSON-LD: một `@graph` duy nhất cho mỗi trang | `pageLd()` trong `lib/seo.tsx` |
