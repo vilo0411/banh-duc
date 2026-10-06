@@ -88,9 +88,9 @@ export function SiteFooter() {
               </li>
             ))}
             <li>
-              <a href="/feed.xml" className="text-muted hover:text-lam">
-                RSS
-              </a>
+              <Link href="/so-do-trang/" className="text-muted hover:text-lam">
+                Sơ đồ trang
+              </Link>
             </li>
           </ul>
         </nav>
