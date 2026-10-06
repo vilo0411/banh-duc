@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { collectionPosts, getCollection, publishedCollections } from "@/lib/collections";
+import {
+  collectionPosts,
+  collectionSections,
+  getCollection,
+  publishedCollections,
+} from "@/lib/collections";
 import { PostRows } from "@/components/post-row";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { Sidebar } from "@/components/sidebar";
@@ -34,7 +39,9 @@ export default async function CollectionPage({ params }: PageProps<"/cong-thuc/[
   const collection = getCollection(nhom);
   if (!collection) notFound();
 
-  const posts = collectionPosts(collection);
+  const sections = collectionSections(collection, collectionPosts(collection));
+  // ItemList theo đúng thứ tự người đọc thấy trên trang.
+  const posts = sections.flatMap((section) => section.docs);
   const others = publishedCollections().filter((c) => c.slug !== collection.slug);
 
   const trail = [
@@ -81,9 +88,24 @@ export default async function CollectionPage({ params }: PageProps<"/cong-thuc/[
             </div>
             <p className="mt-3 text-muted">{collection.intro}</p>
 
-            <div className="mt-5">
-              <PostRows docs={posts} priority={3} level={2} />
-            </div>
+            {sections.length === 1 ? (
+              <div className="mt-5">
+                <PostRows docs={posts} priority={3} level={2} />
+              </div>
+            ) : (
+              sections.map((section, i) => (
+                <section key={section.title} className="mt-7">
+                  {/* Số bài nằm ngoài h2, cùng lý do với h1 ở trên. */}
+                  <div className="flex items-center gap-3 border-b border-line pb-2">
+                    <h2 className="section-title min-w-0 text-lg">{section.title}</h2>
+                    <p className="nums ml-auto shrink-0 text-sm text-muted">
+                      {section.docs.length} công thức
+                    </p>
+                  </div>
+                  <PostRows docs={section.docs} priority={i === 0 ? 3 : 0} level={3} />
+                </section>
+              ))
+            )}
 
             <nav aria-label="Nhóm khác" className="mt-6">
               <p className="eyebrow">Nhóm khác</p>

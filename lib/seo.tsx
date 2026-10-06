@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { absoluteUrl, site } from "./site";
+import { localDimensions } from "./images";
 import type { Doc } from "./content";
 import { recipeTimes, toDuration } from "./recipe";
 
@@ -32,6 +33,14 @@ export function pageMetadata({
   images?: { url: string; width?: number; height?: number; alt?: string }[];
   article?: { publishedTime?: string; modifiedTime?: string };
 }): Metadata {
+  // Kích thước đọc từ file trong public/ khi trang không tự khai — mọi ảnh bài
+  // đều là ảnh cục bộ, nên không trang nào phải nhớ tự đo.
+  images = images.map((image) =>
+    image.width && image.height
+      ? image
+      : { ...image, ...localDimensions(decodeURIComponent(new URL(image.url, site.url).pathname)) },
+  );
+
   return {
     title,
     description,

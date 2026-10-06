@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import { GoogleTagManager } from "@next/third-parties/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -49,6 +50,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       className={`${body.variable} h-full`}
     >
+      {/* Chỉ bản production: `next dev` không được đổ lượt xem giả vào GA4. */}
+      {process.env.NODE_ENV === "production" && <GoogleTagManager gtmId={site.gtmId} />}
       <body className="flex min-h-full flex-col bg-bg text-text">
         {/* JSON-LD không còn ở đây: mỗi trang tự phát một `@graph` đầy đủ đã
             gồm các nút WebSite/Organization/Person — xem `lib/seo.tsx`. */}

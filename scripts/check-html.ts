@@ -77,6 +77,11 @@ function checkPage(file: string, raw: string): string[] {
 
   if (!/<link[^>]+rel="canonical"/.test(raw)) errors.push("thiếu canonical");
   if (!/<meta[^>]+property="og:image"/.test(raw)) errors.push("thiếu og:image");
+  // Thiếu kích thước, Facebook/Zalo phải tải ảnh về mới dựng được thẻ xem
+  // trước, nên lượt chia sẻ đầu tiên của một bài ra không có ảnh.
+  for (const prop of ["og:image:width", "og:image:height"]) {
+    if (!new RegExp(`<meta[^>]+property="${prop}"`).test(raw)) errors.push(`thiếu ${prop}`);
+  }
 
   // Description: có, đủ dài để nói được điều gì, và KHÔNG cụt.
   //

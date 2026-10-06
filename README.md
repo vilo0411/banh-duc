@@ -61,6 +61,15 @@ Trang nhóm nằm ở `/cong-thuc/<slug>/` và **chỉ được tạo khi nhóm 
 thức trở lên** — dưới ngưỡng đó là trang mỏng, tự cạnh tranh với trang tổng.
 Sửa danh sách nhóm và đoạn giới thiệu ở `lib/collections.ts`.
 
+Hai trục giao nhau chứ không lồng nhau: một bài có thể vừa ở "Bánh đúc mặn"
+vừa ở "Bánh đúc miền Bắc". Vì vậy:
+
+- URL bài giữ nguyên `/<slug>/`. Phân cấp đi vào breadcrumb: `Trang chủ ›
+  Công thức › <nhóm loại món> › Bài` (`primaryCollection()`).
+- Trang nhóm chia danh sách theo trục còn lại (`collectionSections()`). Trang
+  loại món chia theo vùng, trang vùng chia theo loại món, mỗi mục là một `h2`
+  ("Bánh đúc mặn miền Bắc") và các bài bên dưới là `h3`.
+
 ### Recipe rich result
 
 Nếu frontmatter có khối `recipe:` (nguyên liệu + các bước) thì bài đó xuất

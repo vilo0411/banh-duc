@@ -24,6 +24,11 @@ export const site = {
   email: "nguyenvietloc0411@gmail.com",
   logo: "/images/logo-banh-duc.png",
   /**
+   * Container GTM mà bản WordPress đã dùng — giữ nguyên ID để GA4 và mọi tag
+   * trong container chạy tiếp, không đứt dữ liệu ở ngày chuyển nhà.
+   */
+  gtmId: "GTM-MQ8HRJNG",
+  /**
    * Người đứng tên nội dung. Bản WordPress ký tên tác giả dưới mỗi bài, có một
    * khối giới thiệu ở cuối bài và một kho bài theo tác giả tại
    * /author/nvloc0411/; trang này giữ cả ba vì với nội dung công thức, "ai

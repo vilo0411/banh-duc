@@ -1,34 +1,11 @@
-import fs from "node:fs";
-import path from "node:path";
 import Image from "next/image";
 import Link from "next/link";
-import { imageSize } from "image-size";
+import { localDimensions } from "@/lib/images";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import type { ComponentPropsWithoutRef } from "react";
-
-/**
- * Intrinsic dimensions for a local image, read from the file itself.
- * Markdown has no way to express width/height, and next/image needs both to
- * reserve space — without it every article shifts layout as images load (CLS).
- */
-const dimensionCache = new Map<string, { width: number; height: number } | null>();
-
-function localDimensions(src: string) {
-  if (dimensionCache.has(src)) return dimensionCache.get(src)!;
-  let result: { width: number; height: number } | null = null;
-  try {
-    const file = fs.readFileSync(path.join(process.cwd(), "public", src));
-    const { width, height } = imageSize(file);
-    if (width && height) result = { width, height };
-  } catch {
-    result = null;
-  }
-  dimensionCache.set(src, result);
-  return result;
-}
 
 function MdxImage({ src, alt }: ComponentPropsWithoutRef<"img">) {
   if (typeof src !== "string" || !src.startsWith("/")) return null;

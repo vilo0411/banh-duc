@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllDocs, getDoc, getPosts, getRelatedPosts } from "@/lib/content";
-import { collectionsFor } from "@/lib/collections";
+import { collectionsFor, primaryCollection } from "@/lib/collections";
 import { getHeadings, stepAnchors } from "@/lib/toc";
 import { docMetadata, docPageLd, JsonLdScript } from "@/lib/seo";
 import { Mdx } from "@/components/mdx";
@@ -70,9 +70,13 @@ export default async function DocPage({ params }: PageProps<"/[slug]">) {
     doc.recipe?.ingredients?.length && doc.recipe.steps?.length ? doc.recipe : undefined;
   const anchors = recipe ? stepAnchors(doc.body, recipe.steps) : [];
 
+  // URL của bài giữ nguyên kiểu WordPress (/<slug>/); tầng phân cấp đi vào
+  // breadcrumb — thứ Google đọc thành BreadcrumbList — chứ không vào đường dẫn.
+  const primary = isPost ? primaryCollection(doc) : undefined;
   const trail = [
     { name: "Trang chủ", url: "/" },
     ...(isPost ? [{ name: "Công thức", url: "/cong-thuc/" }] : []),
+    ...(primary ? [{ name: primary.title, url: `/cong-thuc/${primary.slug}/` }] : []),
     { name: doc.title, url: doc.url },
   ];
 
