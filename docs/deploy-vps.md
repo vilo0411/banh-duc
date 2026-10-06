@@ -13,10 +13,10 @@ Trình duyệt → Cloudflare → Nginx (FlashPanel, :443) → pm2: next start (
 | Thông số | Giá trị |
 | --- | --- |
 | Repo | `https://github.com/vilo0411/banh-duc.git` |
-| Thư mục trên VPS | `~/banhduc-next` (ngoài thư mục web của WordPress) |
+| Thư mục trên VPS | `~/banhduc/current` → một release trong `~/banhduc/releases/` (ngoài thư mục web của WordPress) |
 | Tiến trình pm2 | `banhduc` — khai trong `ecosystem.config.cjs` |
 | Cổng | `3917`, chỉ nghe trên `127.0.0.1` |
-| Node | ≥ 20.9 (Next 16) |
+| Node | ≥ 22.13 (`node:sqlite` cho điểm đánh giá) |
 | GTM | `GTM-MQ8HRJNG` — cùng container với bản WP, đặt ở `lib/site.ts` |
 
 > Đổi cổng: sửa `-p 3917` trong `ecosystem.config.cjs` **và** `proxy_pass` ở
@@ -158,17 +158,58 @@ curl -sI https://banhduc.vn/ | grep -i x-powered-by                             
 WordPress vẫn nằm nguyên trên đĩa và database, nên chạy lại ngay. pm2 có thể để
 nguyên.
 
-## 5. Cập nhật nội dung về sau
+## 5. Cập nhật nội dung về sau — auto deploy
+
+Push lên `main` là site tự cập nhật. Script là `scripts/deploy-vps.sh`: mỗi lần
+nó clone ra một release mới, `npm ci`, build, check, rồi mới đổi symlink
+`~/banhduc/current` và `pm2 reload`. Build hay check lỗi thì bản đang chạy không
+bị đụng tới. Bản mới không trả 200 trong 60 giây thì script tự quay về bản trước.
+
+**Không dùng script mặc định của FlashPanel.** `FLASHPANEL_SITE_ROOT` trỏ vào thư
+mục WordPress, còn script mặc định `git pull` ngay tại đó.
+
+### 5.1. Chuyển sang cấu trúc release — làm một lần, qua terminal của server
 
 ```bash
-cd ~/banhduc-next
-git pull
-npm ci
-npm run build && npm run check && pm2 reload banhduc
+node -v                    # ≥ v22.13; thấp hơn thì: nvm install 22 && nvm alias default 22
+bash ~/banhduc-next/scripts/deploy-vps.sh   # sau khi đã git pull bản có file này
 ```
 
-`npm run check` lỗi thì `pm2 reload` không chạy, nhưng `next build` đã ghi đè
-`.next` — chạy `git checkout <commit trước>` rồi build lại để quay về bản cũ.
+Lần chạy đầu, pm2 vẫn đang giữ `banhduc` cũ (cwd `~/banhduc-next`), nên reload
+chưa chuyển sang release mới. Đổi hẳn một lần:
+
+```bash
+pm2 delete banhduc
+pm2 start ~/banhduc/current/ecosystem.config.cjs
+pm2 save
+curl -sI http://127.0.0.1:3917/ | head -1   # 200
+```
+
+Từ giờ `~/banhduc-next` không còn được dùng. Xoá nó sau khi auto deploy chạy ổn.
+
+### 5.2. Bật auto deploy trong FlashPanel
+
+1. **banhduc.vn → Deployments → Deploy Script**: xoá script mặc định, dán toàn
+   bộ nội dung `scripts/deploy-vps.sh`, bấm **Update**.
+2. Bấm **Deploy Now** một lần, xem log trong *Deployment Histories* kết thúc
+   bằng `✓ Đã deploy <commit>`.
+3. Bật **Auto Deploy** (nhánh `main`). FlashPanel sẽ gắn webhook vào repo GitHub,
+   nên site phải được nối với `vilo0411/banh-duc` qua **Git Integration**.
+   Kiểm tra ở GitHub → repo → Settings → Webhooks: phải có một hook trả ✓.
+
+Sửa script thì sửa `scripts/deploy-vps.sh` trong repo trước, rồi dán lại vào
+FlashPanel. FlashPanel chạy bản đã dán, không phải bản trong repo.
+
+### 5.3. Quay về bản trước bằng tay
+
+```bash
+ls -1t ~/banhduc/releases/                        # giữ 3 bản gần nhất
+ln -sfn ~/banhduc/releases/<bản cũ> ~/banhduc/current
+pm2 reload banhduc
+```
+
+Đổi cổng hay bất kỳ dòng nào trong `ecosystem.config.cjs` thì `pm2 reload` không
+nhận. Phải `pm2 delete banhduc && pm2 start ~/banhduc/current/ecosystem.config.cjs && pm2 save`.
 
 ## 6. Dọn WordPress — sau 2–4 tuần ổn định
 
@@ -180,7 +221,7 @@ với 4 tuần trước.
 - [ ] Xoá **database** WordPress của site (FlashPanel → banhduc.vn → WordPress /
       Database).
 - [ ] Xoá **mã nguồn WordPress** trong thư mục web của site (`wp-admin/`,
-      `wp-includes/`, `wp-content/`, `*.php`). Không đụng `~/banhduc-next`.
+      `wp-includes/`, `wp-content/`, `*.php`). Không đụng `~/banhduc`.
 - [ ] Gỡ cron/backup tự động của WP trong FlashPanel nếu có.
 - [ ] Sau lần FlashPanel gia hạn SSL đầu tiên, mở lại cấu hình Nginx xem khối
       `proxy_pass` còn nguyên không — chưa rõ FlashPanel có sinh lại cấu hình
