@@ -41,3 +41,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# điểm đánh giá công thức (SQLite) — dữ liệu thật, không commit
+/data/

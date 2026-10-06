@@ -139,6 +139,24 @@ function checkGraph(graph: Record<string, unknown>[], html: string): string[] {
   const errors: string[] = [];
   const nodeOf = (type: string) => graph.find((node) => node["@type"] === type);
 
+  // Một `{"@id": …}` đứng một mình là lời hứa "nút này có trong graph". Nút ở
+  // trang khác thì không — Person từng trỏ `mainEntityOfPage` vào ProfilePage
+  // của trang tác giả trên mọi trang, và không có gì báo. Trỏ sang trang khác
+  // thì dùng URL thật.
+  const ids = new Set(graph.map((node) => node["@id"]).filter(Boolean));
+  const dangling = new Set<string>();
+  const walk = (value: unknown, root: boolean): void => {
+    if (Array.isArray(value)) return value.forEach((item) => walk(item, false));
+    if (!value || typeof value !== "object") return;
+    const entries = Object.entries(value);
+    if (!root && entries.length === 1 && entries[0][0] === "@id" && !ids.has(entries[0][1])) {
+      dangling.add(String(entries[0][1]));
+    }
+    for (const [, child] of entries) walk(child, false);
+  };
+  graph.forEach((node) => walk(node, true));
+  for (const id of dangling) errors.push(`JSON-LD tham chiếu ${id} nhưng graph không có nút đó`);
+
   const recipe = nodeOf("Recipe");
   if (recipe) {
     // Google Recipe: thiếu bất kỳ trường nào dưới đây là mất quyền hiển thị
@@ -149,6 +167,64 @@ function checkGraph(graph: Record<string, unknown>[], html: string): string[] {
       return value === undefined || (Array.isArray(value) && value.length === 0);
     });
     if (missing.length) errors.push(`Recipe thiếu ${missing.join(", ")}`);
+
+    // Điểm khai trong schema mà trang không hiện là đánh giá bịa trong mắt
+    // Google — lý do phạt thủ công phổ biến nhất của markup công thức. Cả điểm
+    // lẫn số lượt phải nằm trong khối tóm tắt của chính phần đánh giá.
+    const rating = recipe.aggregateRating as
+      | { ratingValue?: number; ratingCount?: number }
+      | undefined;
+    if (rating) {
+      const summary = html.match(/<p[^>]*data-rating-summary[^>]*>([\s\S]*?)<\/p>/)?.[1];
+      const shown = summary ? decode(summary.replace(/<[^>]+>/g, "")) : "";
+      const value = rating.ratingValue?.toFixed(1).replace(".", ",");
+      if (!summary) {
+        errors.push("Recipe khai aggregateRating nhưng trang không có khối data-rating-summary");
+      } else if (!value || !shown.includes(value) || !shown.includes(`${rating.ratingCount} lượt`)) {
+        errors.push(
+          `Recipe khai ${rating.ratingValue}/${rating.ratingCount} lượt nhưng trang hiện "${shown.trim()}"`,
+        );
+      }
+    }
+
+    // Ảnh của một bước phải là ảnh người đọc thấy trên trang, và URL của bước
+    // phải trỏ tới một id có thật — nếu không thì schema đang mô tả một trang
+    // khác. Ảnh có thể đi qua /_next/image, nên so cả dạng đã mã hoá.
+    const steps = Array.isArray(recipe.recipeInstructions)
+      ? (recipe.recipeInstructions as { name?: string; url?: string; image?: string }[])
+      : [];
+    for (const step of steps) {
+      if (step.image) {
+        const path = new URL(step.image).pathname;
+        if (!html.includes(path) && !html.includes(encodeURIComponent(decodeURI(path)))) {
+          errors.push(`HowToStep "${step.name}" khai ảnh ${path} nhưng trang không hiện ảnh đó`);
+        }
+      }
+      const anchor = step.url?.split("#")[1];
+      if (anchor && !html.includes(`id="${anchor}"`)) {
+        errors.push(`HowToStep "${step.name}" trỏ tới #${anchor} nhưng trang không có id đó`);
+      }
+    }
+
+    // Calo khai trong schema mà trang không hiện là markup không khớp nội dung
+    // — và với một con số sức khoẻ, là một lời khẳng định người đọc không kiểm
+    // được. Con số phải nằm trong chính khối dinh dưỡng, không phải đâu đó
+    // trong trang (một số "450" trong bài viết không chứng minh gì).
+    const nutrition = recipe.nutrition as { calories?: string } | undefined;
+    if (nutrition) {
+      const kcal = nutrition.calories?.match(/^(\d+) calories$/)?.[1];
+      const block = html.match(/<section[^>]*data-nutrition[^>]*>([\s\S]*?)<\/section>/)?.[1];
+      if (!kcal) {
+        errors.push(`Recipe.nutrition.calories sai dạng "${nutrition.calories}"`);
+      } else if (!block) {
+        errors.push("Recipe khai nutrition nhưng trang không có khối data-nutrition");
+      } else {
+        const shown = decode(block.replace(/<[^>]+>/g, " ")).replace(/[.\s]/g, "");
+        if (!shown.includes(kcal)) {
+          errors.push(`Recipe khai ${kcal} kcal nhưng khối dinh dưỡng không hiện con số đó`);
+        }
+      }
+    }
   }
 
   // Một FAQPage mô tả nội dung không có trên trang là schema rỗng — Google gọi
@@ -179,6 +255,55 @@ function checkGraph(graph: Record<string, unknown>[], html: string): string[] {
   return errors;
 }
 
+/** `.next/server/app/a/b.html` → `/a/b/`, đúng dạng URL có `/` cuối của site. */
+function routeOf(file: string): string {
+  const rel = path.relative(ROOT, file).replace(/\.html$/, "");
+  return rel === "index" ? "/" : `/${rel}/`;
+}
+
+/**
+ * Sitemap phải khớp đúng tập trang đã dựng: thiếu một trang là trang đó chỉ còn
+ * trông vào liên kết nội bộ để được tìm thấy; thừa một URL là gửi Google tới
+ * một 404 hoặc một redirect. Mọi `lastmod` phải có múi giờ (W3C Datetime) và
+ * mọi ảnh khai báo phải có file thật trong `public/`.
+ */
+function checkSitemap(files: string[]): string[] {
+  const file = path.join(ROOT, "sitemap.xml.body");
+  if (!fs.existsSync(file)) return ["không tìm thấy sitemap.xml đã dựng"];
+  const xml = fs.readFileSync(file, "utf8");
+  const errors: string[] = [];
+
+  const listed = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) =>
+    decodeURI(new URL(decode(m[1])).pathname),
+  );
+  const pages = files
+    .filter((f) => !path.basename(f).startsWith("_"))
+    .map(routeOf);
+
+  const seen = new Set<string>();
+  for (const url of listed) {
+    if (seen.has(url)) errors.push(`${url} xuất hiện hơn một lần`);
+    seen.add(url);
+    if (!pages.includes(url)) errors.push(`${url} có trong sitemap nhưng không phải trang đã dựng`);
+  }
+  for (const url of pages) {
+    if (!seen.has(url)) errors.push(`${url} thiếu trong sitemap`);
+  }
+
+  for (const [, value] of xml.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)) {
+    if (/T/.test(value) && !/(Z|[+-]\d{2}:\d{2})$/.test(value)) {
+      errors.push(`lastmod ${value} không có múi giờ`);
+    }
+  }
+
+  for (const [, src] of xml.matchAll(/<image:loc>([^<]+)<\/image:loc>/g)) {
+    const local = path.join("public", decodeURI(new URL(decode(src)).pathname));
+    if (!fs.existsSync(local)) errors.push(`ảnh ${src} không có trong public/`);
+  }
+
+  return errors;
+}
+
 function main() {
   if (!fs.existsSync(ROOT)) {
     console.error(`Chưa có ${ROOT}. Chạy \`npm run build\` trước.`);
@@ -198,6 +323,13 @@ function main() {
     failed++;
     console.error(`\n✗ /${path.relative(ROOT, file).replace(/\.html$/, "")}`);
     for (const error of errors) console.error(`  · ${error}`);
+  }
+
+  const sitemapErrors = checkSitemap(files);
+  if (sitemapErrors.length) {
+    failed++;
+    console.error("\n✗ /sitemap.xml");
+    for (const error of sitemapErrors) console.error(`  · ${error}`);
   }
 
   console.log(

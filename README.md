@@ -146,7 +146,7 @@ cách duy nhất để không trang nào lọt lưới; ảnh mặc định là 
 (1200×630).
 
 **Mỗi trang phát đúng một khối JSON-LD, và khối đó là một `@graph`.** Các nút
-(WebSite, Organization, Person, WebPage, BreadcrumbList, ItemList,
+(WebSite, Person, WebPage, BreadcrumbList, ItemList,
 Recipe/Article) nối với nhau bằng `@id` thay vì lặp lại nội dung của nhau —
 đó là điều kiện để Google gom cả trang về một thực thể duy nhất thay vì đọc ra
 mấy mẩu rời không biết có nói về cùng một thứ hay không. Quy ước `@id`: thực

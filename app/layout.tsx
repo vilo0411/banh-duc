@@ -54,7 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       {process.env.NODE_ENV === "production" && <GoogleTagManager gtmId={site.gtmId} />}
       <body className="flex min-h-full flex-col bg-bg text-text">
         {/* JSON-LD không còn ở đây: mỗi trang tự phát một `@graph` đầy đủ đã
-            gồm các nút WebSite/Organization/Person — xem `lib/seo.tsx`. */}
+            gồm các nút WebSite/Person — xem `lib/seo.tsx`. */}
         <a
           href="#noi-dung"
           className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:bg-surface focus:px-4 focus:py-2"

@@ -20,7 +20,7 @@ export const site = {
     "Tổng hợp công thức làm bánh đúc các vùng miền: bánh đúc nóng, bánh đúc lạc, bánh đúc Huế, bánh đúc tàu… hướng dẫn chi tiết từng bước, dễ làm tại nhà.",
   locale: "vi_VN",
   lang: "vi",
-  /** Đúng địa chỉ in trên /lien-he/ — dùng cho `contactPoint` trong JSON-LD. */
+  /** Đúng địa chỉ in trên /lien-he/ — dùng cho `email` của Person trong JSON-LD. */
   email: "nguyenvietloc0411@gmail.com",
   logo: "/images/logo-banh-duc.png",
   /**

@@ -40,15 +40,15 @@ export default function HomePage() {
   return (
     <>
       {/* Trang chủ là gốc của cả graph: nó vừa là danh sách công thức, vừa là
-          trang nói về chính tổ chức đứng sau site. Mọi trang khác neo `@id`
-          của website và tổ chức về đúng hai nút được định nghĩa từ đây. */}
+          trang nói về chính người đứng sau site. Mọi trang khác neo `@id`
+          của website và người viết về đúng hai nút được định nghĩa từ đây. */}
       <JsonLdScript
         data={listPageLd({
           url: "/",
           name: site.title,
           description: site.description,
           docs: shown,
-          about: { "@id": ID.organization },
+          about: { "@id": ID.person },
         })}
       />
 

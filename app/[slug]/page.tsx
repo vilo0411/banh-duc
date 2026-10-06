@@ -14,6 +14,10 @@ import { RecipeSlip } from "@/components/recipe-slip";
 import { PrintButton } from "@/components/print-button";
 import { AuthorBox } from "@/components/author-box";
 import { Faq } from "@/components/faq";
+import { NutritionFacts } from "@/components/nutrition-facts";
+import { getNutrition } from "@/lib/nutrition";
+import { getRating, MIN_PUBLIC_RATINGS } from "@/lib/ratings";
+import { formatRating, RecipeRating, Stars } from "@/components/recipe-rating";
 import { site } from "@/lib/site";
 
 // `home` is the front page, rendered by app/page.tsx. `tin-tuc` is a 301 to
@@ -28,9 +32,11 @@ export function generateStaticParams() {
     .map((doc) => ({ slug: doc.slug }));
 }
 
-// Anything outside generateStaticParams is not a real page — 404 instead of
-// letting crawlers discover an endless space of soft-404 URLs.
-export const dynamicParams = false;
+// Phải là `true`: một lượt chấm sao gọi `revalidatePath` cho trang công thức,
+// và Next 16.3 dựng lại trang hết hạn của route `dynamicParams = false` thành
+// 404 (NoFallbackError) — trang bị chấm điểm sẽ biến mất cho tới lần build
+// sau. Slug lạ vẫn ra 404 thật nhờ `notFound()` trong trang, không phải soft-404.
+export const dynamicParams = true;
 
 export async function generateMetadata({ params }: PageProps<"/[slug]">) {
   const { slug } = await params;
@@ -69,6 +75,8 @@ export default async function DocPage({ params }: PageProps<"/[slug]">) {
   const recipe =
     doc.recipe?.ingredients?.length && doc.recipe.steps?.length ? doc.recipe : undefined;
   const anchors = recipe ? stepAnchors(doc.body, recipe.steps) : [];
+  const nutrition = getNutrition(doc);
+  const rating = recipe ? getRating(doc.slug) : undefined;
 
   // URL của bài giữ nguyên kiểu WordPress (/<slug>/); tầng phân cấp đi vào
   // breadcrumb — thứ Google đọc thành BreadcrumbList — chứ không vào đường dẫn.
@@ -88,7 +96,7 @@ export default async function DocPage({ params }: PageProps<"/[slug]">) {
         <Breadcrumb trail={trail} />
 
         <div className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-10">
-          <article>
+          <article className="min-w-0">
             <header>
               <h1 className="text-2xl leading-tight font-bold text-balance sm:text-[2rem]">
                 {doc.title}
@@ -162,7 +170,23 @@ export default async function DocPage({ params }: PageProps<"/[slug]">) {
                     Xem công thức ↓
                   </a>
                   <PrintButton />
+                  {/* Cùng ngưỡng với schema: sao hiện ở đầu bài đúng khi
+                      Google có thể hiện sao trên kết quả tìm kiếm. */}
+                  {rating && rating.count >= MIN_PUBLIC_RATINGS && (
+                    <a
+                      href="#danh-gia"
+                      className="flex items-center gap-1.5 px-2 py-2 text-sm text-muted hover:text-lam"
+                    >
+                      <Stars value={rating.value} />
+                      <span className="nums">
+                        {formatRating(rating.value)} · {rating.count} đánh giá
+                      </span>
+                    </a>
+                  )}
                 </div>
+                {/* Ngay dưới dải thông số: calo là câu hỏi người ta muốn biết
+                    trước khi quyết định có làm món này không. */}
+                {nutrition && <NutritionFacts nutrition={nutrition} />}
               </>
             )}
 
@@ -171,6 +195,9 @@ export default async function DocPage({ params }: PageProps<"/[slug]">) {
             </div>
 
             {recipe && <RecipeSlip recipe={recipe} anchors={anchors} />}
+
+            {/* Chấm điểm sau phiếu bếp: người chấm là người đã nấu xong. */}
+            {rating && <RecipeRating slug={doc.slug} rating={rating} />}
 
             {/* Hỏi–đáp đứng sau phiếu bếp: người vào bếp cần các bước trước,
                 người còn đang cân nhắc mới đọc tới đây. */}

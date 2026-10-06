@@ -3,6 +3,9 @@ import { absoluteUrl, site } from "./site";
 import { localDimensions } from "./images";
 import type { Doc } from "./content";
 import { recipeTimes, toDuration } from "./recipe";
+import { stepImages } from "./toc";
+import { publicRating } from "./ratings";
+import { getNutrition, perServing } from "./nutrition";
 
 /** Ảnh chia sẻ mặc định — dùng cho mọi trang không có ảnh riêng. */
 const ogFallback = [
@@ -81,7 +84,7 @@ export function docMetadata(doc: Doc): Metadata {
       ? [{ url: absoluteUrl(doc.image), alt: doc.imageAlt || doc.title }]
       : ogFallback,
     ...(isPost
-      ? { article: { publishedTime: doc.date, modifiedTime: doc.updated } }
+      ? { article: { publishedTime: withZone(doc.date), modifiedTime: withZone(doc.updated) } }
       : {}),
   });
 }
@@ -89,10 +92,10 @@ export function docMetadata(doc: Doc): Metadata {
 /* --- Cấu trúc dữ liệu ------------------------------------------------------
 
    Mỗi trang phát ra đúng một khối JSON-LD, và khối đó là một `@graph`: các nút
-   rời (WebSite, Organization, Person, WebPage, BreadcrumbList, Recipe…) nối
+   rời (WebSite, Person, WebPage, BreadcrumbList, Recipe…) nối
    với nhau bằng `@id` thay vì lặp lại nội dung của nhau. Đây là điều kiện để
    Google gom cả trang về một thực thể duy nhất: nó đọc "bài này thuộc trang
-   này, trang này thuộc website này, website này của tổ chức này, bài do người
+   này, trang này thuộc website này, website này của người này, bài do người
    này viết" thành một đường liền mạch, chứ không phải bốn mẩu rời không biết
    có nói về cùng một thứ hay không.
 
@@ -105,7 +108,6 @@ type Node = JsonLd & { "@type": string | string[]; "@id": string };
 
 export const ID = {
   website: absoluteUrl("/#website"),
-  organization: absoluteUrl("/#organization"),
   logo: absoluteUrl("/#logo"),
   person: absoluteUrl("/#tac-gia"),
 } as const;
@@ -114,6 +116,24 @@ export const ID = {
 const ref = (id: string) => ({ "@id": id });
 
 const LANG = "vi-VN";
+
+/**
+ * Ngày của bài lấy từ trường `date`/`modified` của WordPress — giờ địa phương
+ * của site (Asia/Ho_Chi_Minh), không kèm múi giờ. Thiếu múi giờ thì Google tự
+ * đoán, và có thể lệch 7 tiếng sang ngày hôm trước. Ngày đã có múi thì giữ nguyên.
+ */
+export function withZone(date: string): string;
+export function withZone(date: string | undefined): string | undefined;
+export function withZone(date?: string) {
+  if (!date) return date;
+  return /(Z|[+-]\d\d:?\d\d)$/.test(date) || !date.includes("T") ? date : `${date}+07:00`;
+}
+
+/** Kích thước thật của ảnh trong public/ — Google đọc nó để chọn ảnh cho kết quả giàu thông tin. */
+function dimensions(url: string) {
+  const size = localDimensions(decodeURIComponent(new URL(url, site.url).pathname));
+  return size ? { width: size.width, height: size.height } : {};
+}
 
 export const pageId = (url: string) => `${absoluteUrl(url)}#trang`;
 const breadcrumbId = (url: string) => `${absoluteUrl(url)}#duong-dan`;
@@ -137,9 +157,14 @@ function isRecipe(doc: Doc): boolean {
 /* --- Nút dùng chung toàn site --------------------------------------------- */
 
 /**
- * WebSite + Organization + Person, đi kèm mọi trang.
+ * WebSite + Person, đi kèm mọi trang.
  *
- * Ba nút này lặp lại trên từng trang là cố ý: mỗi trang phải tự đứng được như
+ * Đây là site cá nhân: người viết cũng là người đứng tên site, nên `publisher`
+ * của website và của mọi bài là chính Person đó — không dựng ra một
+ * Organization không có thật. Google chấp nhận Person làm publisher, và một
+ * "tổ chức" chỉ có một người mà không ghi như vậy là thông tin sai về danh tính.
+ *
+ * Hai nút này lặp lại trên từng trang là cố ý: mỗi trang phải tự đứng được như
  * một graph đầy đủ, vì Google đọc từng URL một chứ không ghép graph giữa các
  * URL. Chi phí là vài trăm byte, đổi lại `author` và `publisher` của mọi bài
  * đều trỏ tới một thực thể có thật ngay trong cùng khối.
@@ -154,7 +179,10 @@ function siteNodes(): Node[] {
       alternateName: site.title,
       description: site.description,
       inLanguage: LANG,
-      publisher: ref(ID.organization),
+      // Logo là nhận diện của website, không phải ảnh chân dung của người viết.
+      image: ref(ID.logo),
+      author: ref(ID.person),
+      publisher: ref(ID.person),
       // Ô tìm kiếm của trang công thức đọc `?q=`; khai báo nó ở đây là cách
       // Google biết trang có tìm kiếm nội bộ và dẫn thẳng vào kết quả.
       potentialAction: [
@@ -169,31 +197,11 @@ function siteNodes(): Node[] {
       ],
     },
     {
-      "@type": "Organization",
-      "@id": ID.organization,
-      name: site.name,
-      url: absoluteUrl("/"),
-      description: site.description,
-      logo: ref(ID.logo),
-      image: ref(ID.logo),
-      founder: ref(ID.person),
-      publishingPrinciples: absoluteUrl("/quy-trinh-san-xuat-noi-dung/"),
-      // Một tổ chức có chỗ liên hệ được là một tổ chức có thật — đây là tín
-      // hiệu E-E-A-T rẻ nhất còn bỏ trống. Email lấy từ chính trang /lien-he/,
-      // nên hai nơi không thể nói khác nhau.
-      contactPoint: {
-        "@type": "ContactPoint",
-        contactType: "customer support",
-        email: site.email,
-        url: absoluteUrl("/lien-he/"),
-        availableLanguage: ["Vietnamese"],
-      },
-    },
-    {
       "@type": "ImageObject",
       "@id": ID.logo,
       url: absoluteUrl(site.logo),
       contentUrl: absoluteUrl(site.logo),
+      ...dimensions(site.logo),
       caption: site.name,
       inLanguage: LANG,
     },
@@ -205,9 +213,15 @@ function siteNodes(): Node[] {
       jobTitle: site.author.role,
       url: absoluteUrl(site.author.url),
       // Trang hồ sơ là "trang chủ" của thực thể này; hai chiều liên kết
-      // (Person → trang, ProfilePage → Person) khoá danh tính lại.
-      mainEntityOfPage: ref(pageId(site.author.url)),
-      worksFor: ref(ID.organization),
+      // (Person → trang, ProfilePage → Person) khoá danh tính lại. URL thật,
+      // không phải `@id`: nút ProfilePage chỉ có mặt trên chính trang hồ sơ,
+      // nên ở 37 trang còn lại một tham chiếu `@id` sẽ treo lơ lửng.
+      mainEntityOfPage: absoluteUrl(site.author.url),
+      // Người đứng tên liên hệ được và nói rõ cách mình làm nội dung — tín hiệu
+      // E-E-A-T rẻ nhất. Email lấy từ chính trang /lien-he/, nên hai nơi không
+      // thể nói khác nhau.
+      email: site.email,
+      publishingPrinciples: absoluteUrl("/quy-trinh-san-xuat-noi-dung/"),
       knowsAbout: ["Bánh đúc", "Ẩm thực Việt Nam", "Công thức nấu ăn"],
     },
   ];
@@ -221,6 +235,7 @@ function imageNode(pageUrl: string, image: { url: string; alt?: string }): Node 
     "@id": imageId(pageUrl),
     url: absoluteUrl(image.url),
     contentUrl: absoluteUrl(image.url),
+    ...dimensions(image.url),
     ...(image.alt ? { caption: image.alt } : {}),
     inLanguage: LANG,
   };
@@ -320,17 +335,20 @@ export function entityNode(
     name: doc.title,
     ...(doc.description ? { description: doc.description } : {}),
     image,
-    datePublished: doc.date,
-    dateModified: doc.updated || doc.date,
+    datePublished: withZone(doc.date),
+    dateModified: withZone(doc.updated || doc.date),
     inLanguage: LANG,
     // Người thật, không phải tổ chức: Google đọc `author` của Article/Recipe
     // như người chịu trách nhiệm nội dung. Ở đây chỉ là một tham chiếu — nút
     // Person đầy đủ nằm cùng graph, phát ra bởi `siteNodes()`.
     author: ref(ID.person),
-    publisher: ref(ID.organization),
-    // Neo bài vào đúng trang chứa nó, và trang vào website.
-    mainEntityOfPage: ref(pageId(doc.url)),
-    isPartOf: ref(pageId(doc.url)),
+    publisher: ref(ID.person),
+    // Neo bài vào đúng trang chứa nó, và trang vào website. Bản nhắc lại ở
+    // trang khác không có nút WebPage của bài trong graph — cùng lý do với
+    // `image` ở trên, nó trỏ bằng URL thật thay vì một `@id` treo.
+    ...(full
+      ? { mainEntityOfPage: ref(pageId(doc.url)), isPartOf: ref(pageId(doc.url)) }
+      : { mainEntityOfPage: absoluteUrl(doc.url) }),
   };
 
   const r = doc.recipe;
@@ -346,6 +364,9 @@ export function entityNode(
   if (!full) return { "@type": "CreativeWork", ...base };
 
   const totalTime = toDuration(recipeTimes(r).total);
+  // Ảnh của mỗi bước là ảnh tác giả đặt ngay dưới tiêu đề bước đó trong bài —
+  // không bước nào mượn ảnh đại diện hay ảnh của bước khác.
+  const images = stepImages(doc.body, stepAnchors);
   // Từ khoá là các nhãn phân loại của bài, không phải tiêu đề nhồi lại: Google
   // đọc `keywords` như thẻ, và một câu dài ở đây chỉ là spam.
   const keywords = ["Bánh đúc", doc.group, doc.region, r.category]
@@ -364,18 +385,74 @@ export function entityNode(
       // Trỏ tới đúng tiêu đề mà bước được rút ra, để URL dẫn tới cách làm chứ
       // không phải một mảnh neo không tồn tại.
       ...(stepAnchors[i] ? { url: `${absoluteUrl(doc.url)}#${stepAnchors[i]}` } : {}),
+      ...(images[i] ? { image: absoluteUrl(images[i]) } : {}),
     })),
     ...(r.prepTime ? { prepTime: r.prepTime } : {}),
     ...(r.cookTime ? { cookTime: r.cookTime } : {}),
     // Google đọc totalTime; phần lớn bài chỉ khai báo hai nửa.
     ...(totalTime ? { totalTime } : {}),
-    ...(r.yield ? { recipeYield: r.yield } : {}),
+    ...recipeYieldLd(r.yield),
     recipeCategory: r.category ?? "Món ăn vặt",
     recipeCuisine: r.cuisine ?? "Việt Nam",
     // Chỉ khai chế độ ăn khi công thức thật sự đáp ứng — dữ liệu tay ở
     // `lib/editorial.ts`, không suy ra từ tiêu đề.
     ...(doc.diet?.length ? { suitableForDiet: doc.diet } : {}),
+    ...nutritionLd(doc),
+    ...ratingLd(doc),
     keywords,
+  };
+}
+
+/**
+ * Google muốn `recipeYield` là số phần ăn dạng con số, và cần nó để hiểu
+ * `nutrition` tính cho một phần. Bài ghi "4 – 6 người ăn": khai cả con số đầu
+ * (khớp `servingSize` của khối dinh dưỡng, cũng lấy đầu ít người) lẫn nguyên
+ * văn để không mất thông tin.
+ */
+function recipeYieldLd(text?: string): JsonLd {
+  if (!text) return {};
+  const servings = text.match(/\d+/)?.[0];
+  if (!servings || servings === text.trim()) return { recipeYield: text };
+  return { recipeYield: [servings, text] };
+}
+
+/**
+ * `nutrition` của Recipe — chỉ cho bài có trong `lib/nutrition.ts`, và luôn là
+ * đúng con số trang hiện ra. Khẩu phần ghi khoảng ("4 – 6 người") thì schema
+ * lấy đầu ít người (phần to hơn): thà khai dư calo một phần còn hơn khai thiếu.
+ */
+function nutritionLd(doc: Doc): JsonLd {
+  const nutrition = getNutrition(doc);
+  if (!nutrition) return {};
+  const servings = nutrition.servings[0];
+  const each = perServing(nutrition.total, servings);
+  return {
+    nutrition: {
+      "@type": "NutritionInformation",
+      servingSize: `1 phần (1/${servings} công thức)`,
+      calories: `${each.kcal} calories`,
+      carbohydrateContent: `${each.carbs} g`,
+      fatContent: `${each.fat} g`,
+      proteinContent: `${each.protein} g`,
+    },
+  };
+}
+
+/**
+ * `aggregateRating` — chỉ từ phiếu chấm thật của người đọc (`lib/ratings.ts`),
+ * và chỉ khi đủ lượt. Con số là đúng con số khối "Đánh giá công thức" hiện ra.
+ */
+function ratingLd(doc: Doc): JsonLd {
+  const rating = publicRating(doc.slug);
+  if (!rating) return {};
+  return {
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: rating.value,
+      ratingCount: rating.count,
+      bestRating: 5,
+      worstRating: 1,
+    },
   };
 }
 
@@ -433,8 +510,8 @@ export function pageLd({
     ...(picture
       ? { primaryImageOfPage: ref(picture["@id"]), image: ref(picture["@id"]) }
       : {}),
-    ...(datePublished ? { datePublished } : {}),
-    ...(dateModified ? { dateModified } : {}),
+    ...(datePublished ? { datePublished: withZone(datePublished) } : {}),
+    ...(dateModified ? { dateModified: withZone(dateModified) } : {}),
     ...(trail?.length ? { breadcrumb: ref(breadcrumbId(url)) } : {}),
     ...(mainEntity ? { mainEntity: ref(mainEntity["@id"] as string) } : {}),
     ...(about ? { about } : {}),
@@ -464,7 +541,7 @@ export function docPageLd(
   stepAnchors: (string | undefined)[] = [],
 ): JsonLd {
   // Những trang tĩnh có vai trò riêng: khai đúng kiểu thì Google hiểu đây là
-  // trang giới thiệu / liên hệ của tổ chức, không phải một bài viết nữa.
+  // trang giới thiệu / liên hệ của người đứng tên site, không phải một bài viết nữa.
   const STATIC_TYPES: Record<string, string> = {
     "ve-chung-toi": "AboutPage",
     "lien-he": "ContactPage",
@@ -483,9 +560,9 @@ export function docPageLd(
     dateModified: doc.updated || doc.date,
     trail,
     // Trang tĩnh không phải bài viết, nên nó không mang một Article nào cả —
-    // nội dung chính của nó là chính nó. Nó chỉ nói mình nói về tổ chức.
+    // nội dung chính của nó là chính nó. Nó chỉ nói mình nói về người đứng tên site.
     ...(staticType
-      ? { about: ref(ID.organization) }
+      ? { about: ref(ID.person) }
       : { mainEntity: entityNode(doc, { stepAnchors }) }),
     ...(doc.faq?.length
       ? { hasPart: [ref(faqId(doc.url))], nodes: [faqNode(doc.url, doc.faq)] }
