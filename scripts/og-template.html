@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Be+Vietnam+Pro:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        width: 1200px; height: 630px;
+        background: #f4f5f0;
+        display: flex; align-items: center; justify-content: center;
+        font-family: "Be Vietnam Pro", sans-serif;
+      }
+      /* The enamel rim, at poster scale. */
+      .plate {
+        position: relative;
+        width: 1104px; height: 534px;
+        background: #fff;
+        border: 3px solid #1e4e8c;
+        display: flex; flex-direction: column; justify-content: center;
+        padding: 0 84px;
+      }
+      .plate::before {
+        content: ""; position: absolute; inset: 12px;
+        border: 2px solid rgba(189, 68, 48, 0.55);
+      }
+      .eyebrow {
+        font-size: 22px; font-weight: 500; letter-spacing: 0.18em;
+        text-transform: uppercase; color: #1e4e8c;
+        display: flex; align-items: center; gap: 16px;
+      }
+      .diamond {
+        width: 12px; height: 12px; rotate: 45deg; background: #bd4430;
+      }
+      h1 {
+        font-family: "Bricolage Grotesque", serif;
+        font-size: 92px; font-weight: 800; line-height: 1.02;
+        letter-spacing: -0.03em; color: #12283f;
+        margin-top: 28px; max-width: 15ch;
+      }
+      p {
+        margin-top: 30px; font-size: 27px; color: #6a7a86; max-width: 42ch;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="plate">
+      <div class="eyebrow"><span class="diamond"></span> banhduc.vn</div>
+      <h1>Bánh đúc, làm đúng từ mẻ đầu tiên.</h1>
+      <p>Công thức bánh đúc các vùng miền — đo bằng gam, chia theo bước.</p>
+    </div>
+  </body>
+</html>

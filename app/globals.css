@@ -1,0 +1,345 @@
+@import "tailwindcss";
+
+/*
+  Design system: "báo điện tử" (news portal), theo VnExpress Cooking.
+
+  Nền trắng, chữ gần đen, một màu xanh dương duy nhất cho liên kết và một màu
+  đỏ duy nhất để đánh dấu mục. Không có màu trang trí nào khác — mật độ thông
+  tin và đường kẻ mảnh làm hết phần việc của trang trí. Một font sans cho toàn
+  bộ trang; tiêu đề khác thân bài ở cỡ và độ đậm, không ở kiểu chữ.
+*/
+:root {
+  /* Trang chỉ có một bảng màu sáng. Khai báo color-scheme để trình duyệt không
+     tự đảo màu ô nhập, thanh cuộn khi hệ điều hành đang ở chế độ tối. */
+  color-scheme: light;
+
+  --trang: #ffffff; /* nền chính */
+  --trang-xam: #f5f6f7; /* khối phụ, sidebar, footer */
+  --muc: #222222; /* chữ — không dùng đen tuyệt đối */
+  --lam: #0a5ca8; /* xanh liên kết, màu điều hướng */
+  --do: #b31217; /* đỏ đánh dấu mục và nhãn chuyên mục */
+  --xam: #757575; /* chữ phụ: mô tả, thời gian, số liệu */
+  --vien: #e3e5e7; /* kẻ mảnh */
+
+  --bg: var(--trang);
+  --surface: var(--trang);
+  --surface-am: var(--trang-xam);
+  --text: var(--muc);
+  --muted: var(--xam);
+  --line: var(--vien);
+  --accent: var(--lam);
+  /* Phiếu bếp từng dùng màu nghệ riêng; giờ dùng chung màu đỏ đánh dấu để cả
+     trang chỉ còn hai màu nhấn. Giữ tên biến để các component không phải đổi. */
+  --nghe: var(--do);
+  --gach: var(--do);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-am: var(--surface-am);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-lam: var(--lam);
+  --color-gach: var(--gach);
+  --color-nghe: var(--nghe);
+  /* Một font cho cả trang. `font-display` vẫn tồn tại như một tên gọi cho
+     "chữ tiêu đề" nhưng trỏ về cùng bộ chữ — khác biệt nằm ở cỡ và độ đậm. */
+  --font-display: var(--font-be-vietnam), system-ui, sans-serif;
+  --font-sans: var(--font-be-vietnam), system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 7rem;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--lam);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--lam);
+  outline-offset: 2px;
+}
+
+/* --- Đầu mục ------------------------------------------------------------
+   Dấu hiệu nhận dạng của một trang tin: tiêu đề mục có một vạch đỏ dựng đứng
+   ở đầu dòng. Nó thay cho khoảng trắng lớn — mục mới bắt đầu ở vạch đỏ, không
+   phải ở chỗ trang thở ra. */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.section-title::before {
+  content: "";
+  flex: none;
+  width: 4px;
+  align-self: stretch;
+  min-height: 1.15em;
+  background: var(--do);
+}
+.section-title a {
+  color: inherit;
+  text-decoration: none;
+}
+.section-title a:hover {
+  color: var(--lam);
+}
+
+/* Nhãn nhỏ trên đầu một khối — chuyên mục, "mới nhất", "mục lục". */
+.eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--do);
+}
+
+/* Khối viền: sidebar, phiếu bếp, thanh thông số. Một đường kẻ mảnh, không
+   bo góc — hộp của một trang tin, không phải thẻ của một trang blog. */
+.rim {
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.rim-am {
+  background: var(--surface-am);
+}
+
+/* Dấu phân cách giữa các mẩu thông tin trong một dòng meta. */
+.diamond {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--muted);
+  vertical-align: middle;
+}
+
+/* Hàng chuyên mục cuộn ngang trên điện thoại. Thanh cuộn của hệ điều hành đè
+   lên nhãn chữ ở đây nên bị ẩn — vẫn vuốt và cuộn bằng bàn phím được. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Số lượng chỉ xếp thành cột khi các chữ số rộng bằng nhau. */
+.nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Tiêu đề trong danh sách: xanh khi rê chuột, đúng thói quen đọc báo. */
+.headline {
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text);
+}
+a:hover > .headline,
+.headline a:hover {
+  color: var(--lam);
+}
+
+/* Sapo — đoạn tóm tắt in đậm ngay dưới tiêu đề bài. */
+.sapo {
+  font-weight: 600;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+/* --- Chữ trong bài -------------------------------------------------------- */
+.prose {
+  max-width: 46rem;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  /* Bài migrate từ WordPress có URL dài và chuỗi không dấu cách; thiếu dòng
+     này thì chỉ một chuỗi cũng đủ nới rộng trang trên điện thoại. */
+  overflow-wrap: anywhere;
+}
+.prose > * + * {
+  margin-top: 1.1em;
+}
+.prose h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 1.9em;
+}
+.prose h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 1.6em;
+}
+.prose h2 strong,
+.prose h3 strong {
+  font-weight: inherit;
+}
+/* Mỗi tiêu đề được bọc trong một liên kết để lấy được id. Nó vẫn phải đọc ra
+   là tiêu đề, không phải là liên kết. */
+.prose :is(h2, h3, h4) a {
+  color: inherit;
+  text-decoration: none;
+}
+.prose :is(h2, h3, h4) a:hover {
+  color: var(--lam);
+}
+.prose h4 {
+  font-weight: 700;
+  margin-top: 1.4em;
+}
+.prose a {
+  color: var(--lam);
+  text-decoration: none;
+}
+.prose a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose strong {
+  font-weight: 700;
+  color: var(--text);
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.35em;
+}
+.prose li + li {
+  margin-top: 0.4em;
+}
+.prose ul {
+  list-style: none;
+  padding-left: 1.1em;
+}
+.prose ul > li {
+  position: relative;
+}
+.prose ul > li::before {
+  content: "";
+  position: absolute;
+  left: -1.1em;
+  top: 0.75em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--do);
+}
+.prose ol {
+  list-style: decimal;
+}
+.prose ol::marker,
+.prose li::marker {
+  color: var(--do);
+  font-weight: 700;
+}
+.prose blockquote {
+  border-left: 3px solid var(--do);
+  padding: 0.2em 0 0.2em 1.1em;
+  color: var(--muted);
+}
+.prose figure figcaption,
+.prose em:only-child {
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-align: center;
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--line);
+  padding: 0.55em 0.75em;
+  text-align: left;
+}
+.prose th {
+  background: var(--surface-am);
+  font-weight: 700;
+}
+/* Bảng rộng phải tự cuộn bên trong, không bao giờ để trang cuộn ngang. */
+.prose .table-wrap {
+  overflow-x: auto;
+}
+
+/* --- In ra giấy: chỉ còn phiếu bếp ---------------------------------------
+   Người in một công thức muốn nguyên liệu và các bước trên giấy, không phải
+   thanh điều hướng, bài liên quan hay 1.500 chữ mở đầu. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+  /* Mặc định ẩn hết; phiếu bếp và tiêu đề của nó tự bật lại. */
+  header[data-site-header],
+  footer[data-site-footer],
+  [data-print="hide"] {
+    display: none !important;
+  }
+  .rim {
+    border-color: #000;
+  }
+  /* Nền xám là màu của màn hình; trên giấy nó chỉ tốn mực. */
+  .rim-am,
+  .bg-surface-am {
+    background: #fff !important;
+  }
+  /* Phiếu bếp dài hơn một trang giấy, nên chỉ giữ nguyên vẹn từng nguyên liệu
+     và từng bước — giữ nguyên cả khối sẽ đẩy nó sang trang hai và bỏ trống
+     gần hết trang một. */
+  [data-print="slip"] li {
+    break-inside: avoid;
+  }
+  /* Trình duyệt mặc định không in nền, nên ô số bước đặc màu sẽ thành chữ
+     trắng trên giấy trắng. Trên giấy nó đổi thành ô viền, chữ đen. */
+  [data-step] {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #000;
+  }
+  /* Vạch đỏ đầu mục cũng là nền — thay bằng một vạch đen in được. */
+  .section-title::before {
+    background: #000 !important;
+  }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #444;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
